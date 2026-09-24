@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A simple, fast todo list that saves tasks in your browser." />
+  <title>Todo List | Laviscole</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --ink: #172033;
+      --muted: #718096;
+      --line: #e2e8f0;
+      --accent: #635bff;
+      --accent-dark: #5148e5;
+      --danger: #d64545;
+      --shadow: 0 18px 50px rgba(31, 41, 55, .1);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 16px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(135deg, #eef2ff, var(--bg) 45%, #e6fffb);
+    }
+
+    main { width: min(100%, 680px); margin: 0 auto; }
+    .app {
+      background: var(--card);
+      border: 1px solid rgba(226, 232, 240, .9);
+      border-radius: 24px;
+      padding: clamp(20px, 5vw, 40px);
+      box-shadow: var(--shadow);
+    }
+    .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(2rem, 7vw, 3.2rem); line-height: 1; }
+    .subtitle { margin: 12px 0 28px; color: var(--muted); }
+
+    .add-form { display: flex; gap: 10px; margin-bottom: 24px; }
+    input[type="text"] {
+      width: 100%; min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px;
+      color: var(--ink); background: #fbfdff; font: inherit; outline: none;
+    }
+    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99, 91, 255, .15); }
+    button { border: 0; border-radius: 12px; padding: 12px 17px; color: #fff; background: var(--accent); font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    button:hover { background: var(--accent-dark); }
+    button:focus-visible, input:focus-visible { outline: 3px solid rgba(99, 91, 255, .3); outline-offset: 2px; }
+
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    .filters { display: flex; gap: 5px; flex-wrap: wrap; }
+    .filter { padding: 7px 10px; color: var(--muted); background: transparent; font-size: .88rem; }
+    .filter:hover, .filter.active { color: var(--accent); background: #eef0ff; }
+    .clear { padding: 7px 0; color: var(--danger); background: transparent; font-size: .88rem; }
+    .clear:hover { color: #aa2e2e; background: transparent; }
+
+    .tasks { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+    .task { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+    .task.completed .task-text { color: var(--muted); text-decoration: line-through; }
+    .task-check { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; flex: 0 0 auto; }
+    .task-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .task-edit { display: none; width: 100%; padding: 7px 9px !important; }
+    .task.editing .task-text { display: none; }
+    .task.editing .task-edit { display: block; }
+    .icon-button { padding: 6px 8px; color: var(--muted); background: transparent; font-size: .85rem; }
+    .icon-button:hover { color: var(--accent); background: #f1f3ff; }
+    .delete:hover { color: var(--danger); background: #fff1f1; }
+    .empty { padding: 28px 12px; color: var(--muted); text-align: center; }
+    .footer { display: flex; justify-content: space-between; margin-top: 20px; color: var(--muted); font-size: .85rem; }
+
+    @media (max-width: 480px) {
+      body { padding: 16px 10px; }
+      .app { border-radius: 18px; padding: 22px 16px; }
+      .add-form { flex-direction: column; }
+      .add-form button { width: 100%; }
+      .toolbar { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="app" aria-labelledby="title">
+      <p class="eyebrow">Laviscole</p>
+      <h1 id="title">My Todo List</h1>
+      <p class="subtitle">Keep track of what matters. Your tasks are saved automatically.</p>
+
+      <form class="add-form" id="add-form">
+        <label for="task-input" class="sr-only" style="position:absolute;left:-10000px">New task</label>
+        <input id="task-input" type="text" placeholder="What needs to be done?" maxlength="160" autocomplete="off" required />
+        <button type="submit">Add task</button>
+      </form>
+
+      <div class="toolbar">
+        <div class="filters" aria-label="Filter tasks">
+          <button class="filter active" data-filter="all" type="button">All</button>
+          <button class="filter" data-filter="active" type="button">Active</button>
+          <button class="filter" data-filter="completed" type="button">Completed</button>
+        </div>
+        <button class="clear" id="clear-completed" type="button">Clear completed</button>
+      </div>
+
+      <ul class="tasks" id="task-list"></ul>
+      <p class="empty" id="empty-message">No tasks here yet. Add one above to get started.</p>
+      <div class="footer"><span id="task-count">0 tasks left</span><span>Saved in this browser</span></div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'laviscole-todos';
+      let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      let currentFilter = 'all';
+      const form = document.querySelector('#add-form');
+      const input = document.querySelector('#task-input');
+      const list = document.querySelector('#task-list');
+      const empty = document.querySelector('#empty-message');
+      const count = document.querySelector('#task-count');
+
+      const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      const visibleTasks = () => tasks.filter(task => currentFilter === 'all' || (currentFilter === 'active' ? !task.completed : task.completed));
+
+      function render() {
+        list.innerHTML = '';
+        const shown = visibleTasks();
+        empty.hidden = shown.length > 0;
+        shown.forEach(task => {
+          const item = document.createElement('li');
+          item.className = `task${task.completed ? ' completed' : ''}`;
+          item.dataset.id = task.id;
+          item.innerHTML = `
+            <input class="task-check" type="checkbox" aria-label="Mark task complete" ${task.completed ? 'checked' : ''}>
+            <span class="task-text"></span>
+            <input class="task-edit" type="text" maxlength="160" aria-label="Edit task">
+            <button class="icon-button edit" type="button" aria-label="Edit task">Edit</button>
+            <button class="icon-button delete" type="button" aria-label="Delete task">Delete</button>`;
+          item.querySelector('.task-text').textContent = task.text;
+          item.querySelector('.task-edit').value = task.text;
+          list.appendChild(item);
+        });
+        const remaining = tasks.filter(task => !task.completed).length;
+        count.textContent = `${remaining} ${remaining === 1 ? 'task' : 'tasks'} left`;
+      }
+
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+        tasks.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(), text, completed: false });
+        save(); render(); input.value = ''; input.focus();
+      });
+
+      list.addEventListener('click', event => {
+        const item = event.target.closest('.task');
+        if (!item) return;
+        const task = tasks.find(entry => entry.id === item.dataset.id);
+        if (event.target.classList.contains('task-check')) task.completed = event.target.checked;
+        if (event.target.classList.contains('delete')) tasks = tasks.filter(entry => entry.id !== task.id);
+        if (event.target.classList.contains('edit')) {
+          item.classList.add('editing');
+          item.querySelector('.task-edit').focus();
+          return;
+        }
+        save(); render();
+      });
+
+      list.addEventListener('keydown', event => {
+        if (!event.target.classList.contains('task-edit') || event.key !== 'Enter') return;
+        const task = tasks.find(entry => entry.id === event.target.closest('.task').dataset.id);
+        const text = event.target.value.trim();
+        if (text) { task.text = text; save(); render(); }
+      });
+
+      document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
+        currentFilter = button.dataset.filter;
+        document.querySelectorAll('.filter').forEach(filter => filter.classList.toggle('active', filter === button));
+        render();
+      }));
+
+      document.querySelector('#clear-completed').addEventListener('click', () => {
+        tasks = tasks.filter(task => !task.completed);
+        save(); render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
